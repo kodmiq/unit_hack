@@ -1,20 +1,23 @@
 import { Droppable } from '@hello-pangea/dnd'
 import Card from './Card'
 
-export default function Column({ column, tasks, onAddTask, onTaskClick }) {
-  const columnId = column?.id?.toString() || '0'
-
+export default function Column({ column, tasks, onAddTask, onTaskClick, onDeleteColumn }) {
   return (
     <div className="column">
       <div className="column-header">
         <div className="column-title">
-          <span className="column-dot" style={{ background: column?.color || '#ccc' }}></span>
-          <h2>{column?.title || 'Без названия'}</h2>
-          <span className="task-count">{tasks?.length || 0}</span>
+          <span className="column-dot" style={{ background: column.color }}></span>
+          <h2>{column.title}</h2>
+          <span className="task-count">{tasks.length}</span>
         </div>
-        <button className="add-task-btn" onClick={onAddTask}>+</button>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {onDeleteColumn && (
+            <button className="add-task-btn" onClick={onDeleteColumn} title="Удалить колонку">🗑</button>
+          )}
+          <button className="add-task-btn" onClick={onAddTask}>+</button>
+        </div>
       </div>
-      <Droppable droppableId={columnId}>
+      <Droppable droppableId={column.id.toString()}>
         {(provided, snapshot) => (
           <div
             className="task-list"
@@ -25,13 +28,8 @@ export default function Column({ column, tasks, onAddTask, onTaskClick }) {
               transition: 'background 0.2s',
             }}
           >
-            {tasks?.map((task, index) => (
-              <Card
-                key={task.id}
-                task={task}
-                index={index}
-                onClick={() => onTaskClick(task)}
-              />
+            {tasks.map((task, index) => (
+              <Card key={task.id} task={task} index={index} onClick={() => onTaskClick(task)} />
             ))}
             {provided.placeholder}
           </div>

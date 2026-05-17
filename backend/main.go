@@ -19,10 +19,14 @@ func main() {
 		&models.Board{},
 		&models.Column{},
 		&models.Task{},
+		&models.BoardMember{},
+		&models.Invitation{},
+		&models.Notification{},
 	)
 
 	hub := ws.NewHub()
 	go hub.Run()
+	handlers.SetHub(hub) // обязательно
 
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
@@ -40,23 +44,32 @@ func main() {
 
 	api := r.Group("/api", middleware.AuthRequired())
 	{
-		// Доски
 		api.POST("/boards", handlers.CreateBoard)
 		api.GET("/boards", handlers.GetBoards)
 		api.PUT("/boards/:id", handlers.UpdateBoard)
 		api.DELETE("/boards/:id", handlers.DeleteBoard)
 
-		// Колонки
-		api.GET("/columns", handlers.GetColumns) // ?board_id=
+		api.GET("/columns", handlers.GetColumns)
 		api.POST("/columns", handlers.CreateColumn)
 		api.PUT("/columns/:id", handlers.UpdateColumn)
 		api.DELETE("/columns/:id", handlers.DeleteColumn)
 
-		// Задачи
-		api.GET("/tasks", handlers.GetTasks) // ?board_id=
+		api.GET("/tasks", handlers.GetTasks)
 		api.POST("/tasks", handlers.CreateTask)
 		api.PUT("/tasks/:id", handlers.UpdateTask)
 		api.DELETE("/tasks/:id", handlers.DeleteTask)
+
+		api.POST("/boards/:id/invite", handlers.InviteToBoard)
+		api.GET("/invitations", handlers.GetInvitations)
+		api.PUT("/invitations/:id/accept", handlers.AcceptInvitation)
+		api.PUT("/invitations/:id/decline", handlers.DeclineInvitation)
+
+		api.DELETE("/boards/:id/members/:memberId", handlers.RemoveMember)
+
+		api.GET("/boards/:id/members", handlers.GetBoardMembers)
+		api.GET("/notifications", handlers.GetNotifications)
+		api.GET("/notifications/count-unread", handlers.CountUnread)
+		api.PUT("/notifications/read-all", handlers.MarkAllRead)
 	}
 
 	r.GET("/ws", func(c *gin.Context) {

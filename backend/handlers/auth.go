@@ -31,7 +31,6 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	// Проверка на существование
 	var existing models.User
 	if err := database.DB.Where("email = ?", input.Email).First(&existing).Error; err == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Пользователь с таким email уже существует"})
@@ -61,7 +60,6 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	// Создаём личную доску
 	board := models.Board{
 		Name:    "Моя доска",
 		OwnerID: user.ID,

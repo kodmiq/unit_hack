@@ -4,21 +4,34 @@ import { DragDropContext } from '@hello-pangea/dnd'
 import Column from './Column'
 import TaskModal from './TaskModal'
 import CreateColumnModal from './CreateColumnModal'
+import InviteModal from './InviteModal'
+import MembersModal from './MembersModal'
 import { useWebSocket } from '../../context/WebSocketContext'
 import { useBoards } from '../../context/BoardContext'
+import { useAuth } from '../../context/AuthContext'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 
 export default function Board() {
   const { boardId } = useParams()
-  const { boards, setCurrentBoardId } = useBoards()
+  const { boards, setCurrentBoardId, fetchBoards } = useBoards()
+  const { user } = useAuth()
+  
   const [columns, setColumns] = useState([])
   const [tasks, setTasks] = useState({})
   const [modalOpen, setModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
   const [showAddColumn, setShowAddColumn] = useState(false)
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showMembersModal, setShowMembersModal] = useState(false)
+  
   const { messages } = useWebSocket()
   const currentBoardId = boardId ? parseInt(boardId) : null
+  const currentBoard = boards.find(b => b.id === currentBoardId)
+  
+  const isOwner = currentBoard?.owner_id === user?.id
+  
+  const isAdmin = user?.role === 'admin'
 
   useEffect(() => {
     if (currentBoardId) setCurrentBoardId(currentBoardId)
@@ -86,6 +99,17 @@ export default function Board() {
     }
   }
 
+  const handleDeleteColumn = async (columnId) => {
+    if (!confirm('Удалить колонку и все задачи в ней?')) return
+    try {
+      await axios.delete(`/api/columns/${columnId}`)
+      fetchData()
+      toast.success('Колонка удалена')
+    } catch (err) {
+      toast.error('Ошибка удаления')
+    }
+  }
+
   if (!currentBoardId && boards.length === 0) {
     return <div style={{ padding: 40 }}>Создайте первую доску через боковое меню</div>
   }
@@ -93,8 +117,20 @@ export default function Board() {
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 24px' }}>
-        <h2>{boards.find(b => b.id === currentBoardId)?.name || 'Доска'}</h2>
-        <button className="header-btn" onClick={() => setShowAddColumn(true)}>+ Колонка</button>
+        <h2>{currentBoard?.name || 'Доска'}</h2>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {isAdmin && (
+            <> 
+              <button className="header-btn" onClick={() => setShowInviteModal(true)}>
+                👥 Пригласить
+              </button>
+              <button className="header-btn" onClick={() => setShowMembersModal(true)}>
+                👥 Участники
+              </button>
+            </> 
+          )}
+          <button className="header-btn" onClick={() => setShowAddColumn(true)}>+ Колонка</button>
+        </div>
       </div>
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="board">
@@ -111,6 +147,7 @@ export default function Board() {
                 setEditingTask(task)
                 setModalOpen({ columnId: task.column_id })
               }}
+              onDeleteColumn={isOwner ? () => handleDeleteColumn(col.id) : undefined}
             />
           ))}
         </div>
@@ -122,6 +159,7 @@ export default function Board() {
           boardId={currentBoardId}
           onClose={() => setModalOpen(null)}
           onSaved={() => { setModalOpen(null); fetchData() }}
+          canDelete={isOwner}
         />
       )}
       {showAddColumn && (
@@ -131,6 +169,10 @@ export default function Board() {
           onCreated={() => { setShowAddColumn(false); fetchData() }}
         />
       )}
+      {showInviteModal && (
+        <InviteModal boardId={currentBoardId} onClose={() => setShowInviteModal(false)} />
+      )}
+      {showMembersModal && <MembersModal boardId={currentBoardId} onClose={() => setShowMembersModal(false)} />}
     </>
   )
 }

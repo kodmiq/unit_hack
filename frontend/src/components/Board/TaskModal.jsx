@@ -2,7 +2,7 @@ import { useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 
-export default function TaskModal({ columnId, task, boardId, onClose, onSaved }) {
+export default function TaskModal({ columnId, task, boardId, onClose, onSaved, canDelete = true }) {
   const [form, setForm] = useState({
     title: task?.title || '',
     description: task?.description || '',
@@ -35,7 +35,7 @@ export default function TaskModal({ columnId, task, boardId, onClose, onSaved })
   }
 
   const handleDelete = async () => {
-    if (!task) return
+    if (!task || !canDelete) return
     if (!confirm('Удалить задачу?')) return
     try {
       await axios.delete(`/api/tasks/${task.id}`)
@@ -61,7 +61,9 @@ export default function TaskModal({ columnId, task, boardId, onClose, onSaved })
           <input type="date" value={form.deadline} onChange={e => setForm({...form, deadline: e.target.value})} />
           <input placeholder="Теги через запятую" value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} />
           <div className="modal-buttons">
-            {task && <button type="button" onClick={handleDelete} style={{background:'#eb5a46',color:'white'}}>Удалить</button>}
+            {task && canDelete && (
+              <button type="button" onClick={handleDelete} style={{ background: '#eb5a46', color: 'white' }}>Удалить</button>
+            )}
             <button type="button" onClick={onClose}>Отмена</button>
             <button type="submit">{task ? 'Сохранить' : 'Создать'}</button>
           </div>

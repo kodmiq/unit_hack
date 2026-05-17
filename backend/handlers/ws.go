@@ -11,7 +11,7 @@ import (
 )
 
 func WebSocketHandler(c *gin.Context, hub *ws.Hub) {
-	SetHub(hub) // сохраняем хаб для отправки событий из task handlers
+	SetHub(hub)
 
 	tokenString := c.Query("token")
 	if tokenString == "" {

@@ -51,3 +51,20 @@ func (h *Hub) Run() {
 func (h *Hub) Broadcast(data []byte) {
 	h.broadcast <- data
 }
+
+func (h *Hub) SendToUser(userID uint, message []byte) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for client := range h.clients {
+		if client.userID == userID {
+			select {
+			case client.send <- message:
+			default:
+				close(client.send)
+				delete(h.clients, client)
+			}
+			return
+		}
+	}
+}

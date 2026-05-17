@@ -10,8 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Доски
-
 func CreateBoard(c *gin.Context) {
 	userID := c.GetUint("userID")
 	var input struct {
@@ -26,7 +24,6 @@ func CreateBoard(c *gin.Context) {
 		OwnerID: userID,
 	}
 	database.DB.Create(&board)
-	// Стандартные колонки
 	columns := []models.Column{
 		{Title: "To Do", Color: "#f2c94c", Position: 1, BoardID: board.ID},
 		{Title: "In Progress", Color: "#5e6ad2", Position: 2, BoardID: board.ID},
@@ -38,9 +35,27 @@ func CreateBoard(c *gin.Context) {
 
 func GetBoards(c *gin.Context) {
 	userID := c.GetUint("userID")
-	var boards []models.Board
-	database.DB.Where("owner_id = ?", userID).Find(&boards)
-	c.JSON(http.StatusOK, boards)
+	var owned []models.Board
+	database.DB.Where("owner_id = ?", userID).Find(&owned)
+
+	var memberIDs []uint
+	database.DB.Model(&models.BoardMember{}).Where("user_id = ?", userID).Pluck("board_id", &memberIDs)
+
+	var memberBoards []models.Board
+	if len(memberIDs) > 0 {
+		database.DB.Where("id IN ?", memberIDs).Find(&memberBoards)
+	}
+
+	allBoards := append(owned, memberBoards...)
+	seen := map[uint]bool{}
+	var result []models.Board
+	for _, b := range allBoards {
+		if !seen[b.ID] {
+			seen[b.ID] = true
+			result = append(result, b)
+		}
+	}
+	c.JSON(http.StatusOK, result)
 }
 
 func UpdateBoard(c *gin.Context) {
@@ -91,8 +106,6 @@ func DeleteBoard(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// Колонки (с board_id)
-
 func GetColumns(c *gin.Context) {
 	boardIDStr := c.Query("board_id")
 	if boardIDStr == "" {
@@ -112,13 +125,11 @@ func CreateColumn(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// Проверка доступа: пользователь должен быть владельцем доски
 	var board models.Board
 	if database.DB.First(&board, col.BoardID).Error != nil || board.OwnerID != userID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "нет доступа"})
 		return
 	}
-	// Авто-позиция
 	var maxPos *int
 	database.DB.Model(&models.Column{}).Where("board_id = ?", col.BoardID).Select("max(position)").Scan(&maxPos)
 	if maxPos != nil {
@@ -177,4 +188,50 @@ func DeleteColumn(c *gin.Context) {
 	database.DB.Where("column_id = ?", col.ID).Delete(&models.Task{})
 	database.DB.Delete(&col)
 	c.Status(http.StatusNoContent)
+}
+
+func GetBoardMembers(c *gin.Context) {
+	boardIDStr := c.Param("id")
+	boardID, err := strconv.ParseUint(boardIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "неверный id"})
+		return
+	}
+	userID := c.GetUint("userID")
+	var board models.Board
+	if database.DB.First(&board, boardID).Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "доска не найдена"})
+		return
+	}
+	isMember := board.OwnerID == userID || database.DB.Where("board_id = ? AND user_id = ?", boardID, userID).First(&models.BoardMember{}).Error == nil
+	if !isMember {
+		c.JSON(http.StatusForbidden, gin.H{"error": "нет доступа"})
+		return
+	}
+
+	var members []models.BoardMember
+	database.DB.Preload("User").Where("board_id = ?", boardID).Find(&members)
+
+	owner := models.BoardMember{
+		BoardID: board.ID,
+		UserID:  board.OwnerID,
+		Role:    "owner",
+		User:    board.Owner,
+	}
+	var ownerUser models.User
+	database.DB.First(&ownerUser, board.OwnerID)
+	owner.User = ownerUser
+
+	found := false
+	for _, m := range members {
+		if m.UserID == board.OwnerID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		members = append([]models.BoardMember{owner}, members...)
+	}
+
+	c.JSON(http.StatusOK, members)
 }
