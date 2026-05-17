@@ -1,0 +1,8 @@
+[build]
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+startCommand = "./main"
+
+[service]
+port = 8080

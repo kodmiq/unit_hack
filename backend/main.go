@@ -6,7 +6,7 @@ import (
 	"dodirtim-backend/middleware"
 	"dodirtim-backend/models"
 	"dodirtim-backend/ws"
-
+	"os"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -29,8 +29,9 @@ func main() {
 	handlers.SetHub(hub) // обязательно
 
 	r := gin.Default()
+
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     []string{"https://*.railway.app", "http://localhost:5173"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
@@ -76,5 +77,9 @@ func main() {
 		handlers.WebSocketHandler(c, hub)
 	})
 
-	r.Run(":8080")
+	port := os.Getenv("SERVER_PORT")
+	if port == "" {
+    	port = "8080"
+	}
+	r.Run(":" + port)
 }
