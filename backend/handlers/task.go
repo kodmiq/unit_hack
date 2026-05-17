@@ -33,8 +33,14 @@ func broadcastEvent(eventType string, task interface{}) {
 }
 
 func GetTasks(c *gin.Context) {
+	boardIDStr := c.Query("board_id")
+	if boardIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "board_id required"})
+		return
+	}
+	boardID, _ := strconv.ParseUint(boardIDStr, 10, 64)
 	var tasks []models.Task
-	database.DB.Preload("Column").Order("position asc").Find(&tasks)
+	database.DB.Where("board_id = ?", boardID).Order("position asc").Find(&tasks)
 	c.JSON(http.StatusOK, tasks)
 }
 

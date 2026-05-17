@@ -5,23 +5,10 @@ const AuthContext = createContext()
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token') || null)
-  const [user, setUser] = useState(null)
-
-  useEffect(() => {
-    const interceptor = axios.interceptors.response.use(
-      response => response,
-      error => {
-        if (error.response?.status === 401) {
-          localStorage.removeItem('token')
-          setToken(null)
-          setUser(null)
-          window.location.href = '/login'
-        }
-        return Promise.reject(error)
-      }
-    )
-    return () => axios.interceptors.response.eject(interceptor)
-  }, [])
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('user')
+    return saved ? JSON.parse(saved) : null
+  })
 
   useEffect(() => {
     if (token) {
@@ -36,14 +23,16 @@ export const AuthProvider = ({ children }) => {
     setToken(res.data.token)
     localStorage.setItem('token', res.data.token)
     setUser(res.data.user)
+    localStorage.setItem('user', JSON.stringify(res.data.user))
     return res.data
   }
 
-  const register = async (username, email, password) => {
-    const res = await axios.post('/api/auth/register', { username, email, password })
+  const register = async (username, email, password, role) => {
+    const res = await axios.post('/api/auth/register', { username, email, password, role })
     setToken(res.data.token)
     localStorage.setItem('token', res.data.token)
     setUser(res.data.user)
+    localStorage.setItem('user', JSON.stringify(res.data.user))
     return res.data
   }
 
@@ -51,6 +40,8 @@ export const AuthProvider = ({ children }) => {
     setToken(null)
     setUser(null)
     localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    delete axios.defaults.headers.common['Authorization']
   }
 
   return (

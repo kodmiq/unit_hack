@@ -1,8 +1,6 @@
 package models
 
-import (
-	"time"
-)
+import "time"
 
 type Task struct {
 	ID          uint       `json:"id" gorm:"primarykey"`
@@ -13,5 +11,7 @@ type Task struct {
 	Tags        string     `json:"tags"`
 	ColumnID    uint       `json:"column_id" gorm:"not null"`
 	Position    int        `json:"position" gorm:"default:0"`
-	Column      Column     `json:"column" gorm:"foreignKey:ColumnID"`
+	BoardID     uint       `json:"board_id" gorm:"not null"`
+	CreatedAt   time.Time  `json:"created_at"`
+	Column      Column     `json:"-" gorm:"foreignKey:ColumnID"`
 }

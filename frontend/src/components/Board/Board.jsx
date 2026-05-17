@@ -1,54 +1,58 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 import { DragDropContext } from '@hello-pangea/dnd'
 import Column from './Column'
 import TaskModal from './TaskModal'
+import CreateColumnModal from './CreateColumnModal'
 import { useWebSocket } from '../../context/WebSocketContext'
+import { useBoards } from '../../context/BoardContext'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 
 export default function Board() {
+  const { boardId } = useParams()
+  const { boards, setCurrentBoardId } = useBoards()
   const [columns, setColumns] = useState([])
   const [tasks, setTasks] = useState({})
   const [modalOpen, setModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [showAddColumn, setShowAddColumn] = useState(false)
   const { messages } = useWebSocket()
+  const currentBoardId = boardId ? parseInt(boardId) : null
+
+  useEffect(() => {
+    if (currentBoardId) setCurrentBoardId(currentBoardId)
+  }, [currentBoardId, setCurrentBoardId])
 
   const fetchData = useCallback(async () => {
+    if (!currentBoardId) return
     try {
-      setLoading(true)
       const [colsRes, tasksRes] = await Promise.all([
-        axios.get('/api/columns'),
-        axios.get('/api/tasks')
+        axios.get(`/api/columns?board_id=${currentBoardId}`),
+        axios.get(`/api/tasks?board_id=${currentBoardId}`)
       ])
-      const cols = colsRes.data
-      const tasksByColumn = {}
-      tasksRes.data.forEach(task => {
-        const colId = task.column_id
-        if (!tasksByColumn[colId]) tasksByColumn[colId] = []
-        tasksByColumn[colId].push(task)
+      setColumns(colsRes.data)
+      const tasksByCol = {}
+      tasksRes.data.forEach(t => {
+        if (!tasksByCol[t.column_id]) tasksByCol[t.column_id] = []
+        tasksByCol[t.column_id].push(t)
       })
-      setColumns(cols)
-      setTasks(tasksByColumn)
+      setTasks(tasksByCol)
     } catch (err) {
-      console.error('Ошибка загрузки данных', err)
       toast.error('Ошибка загрузки данных')
-    } finally {
-      setLoading(false)
     }
-  }, [])
+  }, [currentBoardId])
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
-
-  useEffect(() => {
-    if (messages.length === 0) return
-    const lastMsg = messages[messages.length - 1]
-    if (['task_created', 'task_updated', 'task_deleted', 'task_moved'].includes(lastMsg.type)) {
-      fetchData()
+    if (messages.length && currentBoardId) {
+      const last = messages[messages.length - 1]
+      if (['task_created', 'task_updated', 'task_deleted'].includes(last.type)) {
+        fetchData()
+      }
     }
-  }, [messages, fetchData])
+  }, [messages, fetchData, currentBoardId])
 
   const handleDragEnd = async (result) => {
     const { destination, source, draggableId } = result
@@ -68,25 +72,30 @@ export default function Board() {
     const newTask = { ...movedTask, column_id: destColId }
     destTasks.splice(destination.index, 0, newTask)
 
-    const newTasks = { ...tasks, [sourceColId]: sourceTasks }
-    if (sourceColId !== destColId) newTasks[destColId] = destTasks
-    setTasks(newTasks)
+    setTasks(prev => ({
+      ...prev,
+      [sourceColId]: sourceTasks,
+      [destColId]: destTasks
+    }))
 
     try {
       await axios.put(`/api/tasks/${taskId}`, { column_id: destColId })
-      toast.success('Задача перемещена')
     } catch (err) {
       toast.error('Ошибка перемещения')
       fetchData()
     }
   }
 
-  if (loading) {
-    return <div style={{ padding: 40, fontSize: 18 }}>Загрузка доски...</div>
+  if (!currentBoardId && boards.length === 0) {
+    return <div style={{ padding: 40 }}>Создайте первую доску через боковое меню</div>
   }
 
   return (
     <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 24px' }}>
+        <h2>{boards.find(b => b.id === currentBoardId)?.name || 'Доска'}</h2>
+        <button className="header-btn" onClick={() => setShowAddColumn(true)}>+ Колонка</button>
+      </div>
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="board">
           {columns.map(col => (
@@ -110,11 +119,16 @@ export default function Board() {
         <TaskModal
           columnId={modalOpen.columnId}
           task={editingTask}
+          boardId={currentBoardId}
           onClose={() => setModalOpen(null)}
-          onSaved={() => {
-            setModalOpen(null)
-            fetchData()
-          }}
+          onSaved={() => { setModalOpen(null); fetchData() }}
+        />
+      )}
+      {showAddColumn && (
+        <CreateColumnModal
+          boardId={currentBoardId}
+          onClose={() => setShowAddColumn(false)}
+          onCreated={() => { setShowAddColumn(false); fetchData() }}
         />
       )}
     </>

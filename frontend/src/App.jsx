@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { WebSocketProvider } from './context/WebSocketContext'
+import { BoardProvider } from './context/BoardContext'
 import Layout from './components/Layout'
 import Board from './components/Board/Board'
 import Login from './components/Auth/Login'
@@ -12,15 +13,19 @@ function App() {
   return (
     <AuthProvider>
       <WebSocketProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/board" element={<Layout><Board /></Layout>} />
-            <Route path="*" element={<Navigate to="/board" />} />
-          </Routes>
-        </BrowserRouter>
-        <Toaster position="top-right" />
+        <BoardProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/board/:boardId" element={<Layout><Board /></Layout>} />
+              <Route path="/board" element={<Layout><Board /></Layout>} />
+              <Route path="/" element={<Navigate to="/login" />} />
+              <Route path="*" element={<Navigate to="/login" />} />
+            </Routes>
+          </BrowserRouter>
+          <Toaster position="top-right" />
+        </BoardProvider>
       </WebSocketProvider>
     </AuthProvider>
   )
